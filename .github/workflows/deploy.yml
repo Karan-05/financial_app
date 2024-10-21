@@ -3,47 +3,70 @@ name: Deploy to AWS ECS
 on:
   push:
     branches:
-      - main  # Change to your default branch if different
+      - main  # Trigger on push to main branch. Change if your default branch is different.
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the repository
+      # 1. Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Set up Docker Buildx
+      # 2. Set up Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # Log in to AWS ECR
+      # 3. Log in to Amazon ECR
       - name: Log in to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
         with:
           registry: ${{ secrets.AWS_ECR_REGISTRY }}
           region: ${{ secrets.AWS_REGION }}
 
-      # Build, tag, and push Docker image to ECR
+      # 4. Build, tag, and push Docker image to ECR
       - name: Build, tag, and push Docker image to ECR
         env:
           ECR_REGISTRY: ${{ secrets.AWS_ECR_REGISTRY }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
+          # Build the Docker image
           docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
+          
+          # Tag the Docker image
           docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          
+          # Push the Docker image to ECR
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      # Update ECS service with the new image
-      - name: Update ECS Service
-        uses: aws-actions/amazon-ecs-update-service@v1
+      # 5. Register new ECS task definition
+      - name: Register ECS Task Definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-register-task-definition@v1
         with:
-          cluster: ${{ secrets.AWS_ECS_CLUSTER }}
+          family: financial_app_task  # Your ECS Task Definition family name
+          container-name: financial_app_container  # Your container name in Task Definition
+          container-image: ${{ secrets.AWS_ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
+          task-role-arn: ${{ secrets.AWS_TASK_ROLE_ARN }}  # IAM Role ARN for the task
+          execution-role-arn: ${{ secrets.AWS_EXECUTION_ROLE_ARN }}  # IAM Role ARN for ECS task execution
+          network-mode: awsvpc
+          requires-compatibilities: FARGATE
+          cpu: "512"  # Adjust based on your needs
+          memory: "1024"  # Adjust based on your needs
+          port-mappings: '8000:8000'  # Host:Container ports
+          environment-variables: |
+            DJANGO_SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            DEBUG=False
+
+      # 6. Deploy to ECS Service
+      - name: Deploy to ECS Service
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition-arn }}
           service: ${{ secrets.AWS_ECS_SERVICE }}
-          task-definition: ${{ secrets.AWS_ECS_SERVICE }}-task-def
-          container-name: financial_app_container
-          image: ${{ secrets.AWS_ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
+          cluster: ${{ secrets.AWS_ECS_CLUSTER }}
+          wait-for-service-stability: true
           region: ${{ secrets.AWS_REGION }}
