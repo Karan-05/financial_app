@@ -3,7 +3,7 @@ name: Deploy to AWS ECS
 on:
   push:
     branches:
-      - main  # Trigger on push to main branch. Change if your default branch is different.
+      - main  # Change to your default branch if different
 
 jobs:
   deploy:
@@ -14,18 +14,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2. Set up Docker Buildx
+      # 2. Configure AWS Credentials
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # 3. Set up Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # 3. Log in to Amazon ECR
+      # 4. Log in to Amazon ECR
       - name: Log in to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
         with:
           registry: ${{ secrets.AWS_ECR_REGISTRY }}
-          region: ${{ secrets.AWS_REGION }}
 
-      # 4. Build, tag, and push Docker image to ECR
+      # 5. Build, tag, and push Docker image to ECR
       - name: Build, tag, and push Docker image to ECR
         env:
           ECR_REGISTRY: ${{ secrets.AWS_ECR_REGISTRY }}
@@ -41,27 +48,24 @@ jobs:
           # Push the Docker image to ECR
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      # 5. Register new ECS task definition
+      # 6. Register new ECS task definition
       - name: Register ECS Task Definition
         id: task-def
         uses: aws-actions/amazon-ecs-register-task-definition@v1
         with:
           family: financial_app_task  # Your ECS Task Definition family name
+          network-mode: awsvpc
           container-name: financial_app_container  # Your container name in Task Definition
           container-image: ${{ secrets.AWS_ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
-          task-role-arn: ${{ secrets.AWS_TASK_ROLE_ARN }}  # IAM Role ARN for the task
-          execution-role-arn: ${{ secrets.AWS_EXECUTION_ROLE_ARN }}  # IAM Role ARN for ECS task execution
-          network-mode: awsvpc
-          requires-compatibilities: FARGATE
-          cpu: "512"  # Adjust based on your needs
-          memory: "1024"  # Adjust based on your needs
+          cpu: '512'  # Adjust based on your needs
+          memory: '1024'  # Adjust based on your needs
           port-mappings: '8000:8000'  # Host:Container ports
           environment-variables: |
             DJANGO_SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             DEBUG=False
 
-      # 6. Deploy to ECS Service
+      # 7. Deploy to ECS Service
       - name: Deploy to ECS Service
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
@@ -69,4 +73,4 @@ jobs:
           service: ${{ secrets.AWS_ECS_SERVICE }}
           cluster: ${{ secrets.AWS_ECS_CLUSTER }}
           wait-for-service-stability: true
-          region: ${{ secrets.AWS_REGION }}
+
