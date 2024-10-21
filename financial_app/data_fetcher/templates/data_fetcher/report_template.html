@@ -1,0 +1,34 @@
+<!-- data_fetcher/templates/data_fetcher/report_template.html -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; }
+        h1 { text-align: center; }
+        .metrics { margin: 20px 0; }
+        .metrics ul { list-style-type: none; padding: 0; }
+        .metrics li { margin: 5px 0; }
+        .chart { text-align: center; }
+        img { max-width: 100%; height: auto; }
+    </style>
+</head>
+<body>
+    <h1>Performance Report</h1>
+    <div class="metrics">
+        <h2>Key Metrics</h2>
+        <ul>
+            <li><strong>Initial Investment:</strong> ${{ result.initial_investment }}</li>
+            <li><strong>Final Investment Value:</strong> ${{ result.final_investment_value }}</li>
+            <li><strong>Total Return:</strong> ${{ result.total_return }} ({{ result.total_return_percent }}%)</li>
+            <li><strong>Max Drawdown:</strong> {{ result.max_drawdown_percent }}%</li>
+            <li><strong>Number of Trades Executed:</strong> {{ result.number_of_trades }}</li>
+        </ul>
+    </div>
+    <div class="chart">
+        <h2>Actual vs Predicted Stock Prices</h2>
+        <img src="data:image/png;base64,{{ chart }}" alt="Stock Prices Chart">
+    </div>
+</body>
+</html>

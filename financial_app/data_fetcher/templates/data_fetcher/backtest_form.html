@@ -1,0 +1,72 @@
+{% extends 'data_fetcher/base.html' %}
+
+{% block title %}Backtesting Strategy - Financial App{% endblock %}
+
+{% block content %}
+    <h1 class="text-center mb-4">Backtesting Strategy</h1>
+
+    {% if error_message %}
+        <div class="alert alert-danger" role="alert">
+            {{ error_message }}
+        </div>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-6 offset-md-3">
+            <form method="post" class="shadow p-4 bg-white">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="initial_investment">Initial Investment Amount:</label>
+                    <input type="number" name="initial_investment" id="initial_investment" step="0.01" class="form-control" value="{{ initial_investment|default_if_none:10000 }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="short_window">Short Moving Average Window (days):</label>
+                    <input type="number" name="short_window" id="short_window" class="form-control" value="{{ short_window|default_if_none:50 }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="long_window">Long Moving Average Window (days):</label>
+                    <input type="number" name="long_window" id="long_window" class="form-control" value="{{ long_window|default_if_none:200 }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="symbol">Stock Symbol:</label>
+                    <input type="text" name="symbol" id="symbol" class="form-control" value="{{ symbol|default_if_none:'AAPL' }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="output_format">Output Format:</label>
+                    <select name="output_format" id="output_format" class="form-control">
+                        <option value="pdf" {% if output_format == 'pdf' %}selected{% endif %}>PDF</option>
+                        <option value="json" {% if output_format == 'json' %}selected{% endif %}>JSON</option>
+                    </select>
+                </div>
+
+                <button type="submit" name="action" value="backtest" class="btn btn-primary btn-block">
+                    <i class="fas fa-chart-line"></i> Run Backtest
+                </button>
+                <button type="submit" name="action" value="generate_report" class="btn btn-success btn-block">
+                    <i class="fas fa-file-download"></i> Generate Report
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {% if result %}
+        <div class="mt-5">
+            <h2 class="text-center">Backtest Results</h2>
+            <div class="card mx-auto" style="max-width: 600px;">
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Initial Investment:</strong> ${{ result.initial_investment }}</li>
+                        <li class="list-group-item"><strong>Final Investment Value:</strong> ${{ result.final_investment_value }}</li>
+                        <li class="list-group-item"><strong>Total Return:</strong> ${{ result.total_return }} ({{ result.total_return_percent }}%)</li>
+                        <li class="list-group-item"><strong>Max Drawdown:</strong> {{ result.max_drawdown_percent }}%</li>
+                        <li class="list-group-item"><strong>Number of Trades Executed:</strong> {{ result.number_of_trades }}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}
