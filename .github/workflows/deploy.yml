@@ -1,1 +1,50 @@
+name: Deploy to EC2
 
+on:
+  push:
+    branches:
+      - main  # or the branch you want to trigger deployment
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          region: ${{ secrets.AWS_REGION }}
+
+      - name: Build, Tag, and Push Docker Image
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t financial-app:$IMAGE_TAG .
+          docker tag financial-app:$IMAGE_TAG $ECR_REGISTRY:$IMAGE_TAG
+          docker push $ECR_REGISTRY:$IMAGE_TAG
+
+      - name: Update EC2 with Latest Image
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Log into ECR (if not using IAM roles on EC2)
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REPOSITORY }}
+
+            # Pull the latest image
+            docker pull ${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
+
+            # Update Docker Compose file with the new image tag
+            sed -i "s|image: financial-app:.*|image: ${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}|" docker-compose.yml
+
+            # Rebuild and restart containers
+            docker-compose down
+            docker-compose up -d --build
