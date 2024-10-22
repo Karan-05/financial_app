@@ -1,9 +1,6 @@
 name: Deploy to AWS ECS
 
-on:
-  push:
-    branches:
-      - main  # Replace with your default branch if different
+
 
 jobs:
   deploy:
