@@ -14,18 +14,20 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # Step 2: Log in to Amazon ECR
+      # Step 2: Configure AWS Credentials
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # Step 3: Log in to Amazon ECR
       - name: Log in to Amazon ECR
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
-        with:
-          registry-type: private
-        env:
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      # Step 3: Build, Tag, and Push Docker Image
+      # Step 4: Build, Tag, and Push Docker Image
       - name: Build, Tag, and Push Docker Image
         id: build-image
         env:
@@ -41,7 +43,7 @@ jobs:
           # Push the Docker image to ECR
           docker push ${ECR_REGISTRY}:${IMAGE_TAG}
 
-      # Step 4: Create Deployment Archive
+      # Step 5: Create Deployment Archive
       - name: Create Deployment Archive
         id: create-archive
         run: |
@@ -54,25 +56,19 @@ jobs:
           # Navigate to the deployment directory
           cd deployment
           
-          
-      # Step 5: Upload Deployment Package to S3
-      - name: Upload Deployment Package to S3
-        uses: aws-actions/aws-cli@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          args: s3 cp deployment.zip s3://${{ secrets.CODEDEPLOY_S3_BUCKET }}/deployment.zip
+          # Zip the deployment package
+          zip -r ../deployment.zip .
 
-      # Step 6: Create a Deployment in CodeDeploy
+      # Step 6: Upload Deployment Package to S3
+      - name: Upload Deployment Package to S3
+        run: |
+          aws s3 cp deployment.zip s3://${{ secrets.CODEDEPLOY_S3_BUCKET }}/deployment.zip
+
+      # Step 7: Create Deployment in CodeDeploy
       - name: Create Deployment
-        uses: aws-actions/aws-cli@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          args: >
-            deploy create-deployment
-            --application-name ${{ secrets.APPLICATION_NAME }}
-            --deployment-group-name ${{ secrets.DEPLOYMENT_GROUP }}
-            --s3-location bucket=${{ secrets.CODEDEPLOY_S3_BUCKET }},key=deployment.zip,bundleType=zip
+        run: |
+          aws deploy create-deployment \
+            --application-name ${{ secrets.APPLICATION_NAME }} \
+            --deployment-group-name ${{ secrets.DEPLOYMENT_GROUP }} \
+            --s3-location bucket=${{ secrets.CODEDEPLOY_S3_BUCKET }},key=deployment.zip,bundleType=zip \
+            --description "Deploying commit ${{ github.sha }}"
