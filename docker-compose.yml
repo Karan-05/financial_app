@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   web:
-    build: .
+    image: 051826698008.dkr.ecr.us-east-1.amazonaws.com/financial_app:${IMAGE_TAG}  
     command: gunicorn financial_app.wsgi:application --bind 0.0.0.0:8000
     ports:
       - "8000:8000"
