@@ -56,6 +56,7 @@ jobs:
               "docker pull ${ECR_REPOSITORY}:${GITHUB_SHA}",
               "sed -i 's|image: financial-app:.*|image: ${ECR_REPOSITORY}:${GITHUB_SHA}|' docker-compose.yml",
               "cd financial_app/",
+              "git pull",
               "docker-compose down",
               "docker-compose up -d --build"
             ]
