@@ -1,7 +1,7 @@
 {
   "family": "your-task-family",
   "networkMode": "awsvpc",
-  "executionRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ecsTaskExecutionRole",
+  "executionRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/eecsTaskExecutionRole",
   "containerDefinitions": [
     {
       "name": "your-container-name",
