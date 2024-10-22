@@ -1,4 +1,3 @@
-# financial_app
 # Financial App
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
@@ -19,7 +18,11 @@
   - [4. Reporting](#4-reporting)
 - [Deployment](#deployment)
   - [AWS Deployment](#aws-deployment)
+    - [Architecture Overview](#architecture-overview)
+    - [Components](#components)
+    - [CI/CD Pipeline](#cicd-pipeline)
   - [Heroku Deployment](#heroku-deployment)
+  - [Heroku vs. AWS Deployment](#heroku-vs-aws-deployment)
 - [Evaluation Criteria](#evaluation-criteria)
 - [Acknowledgments](#acknowledgments)
 - [License](#license)
@@ -158,22 +161,109 @@ Dynamic reporting features enable users to generate insightful reports with ease
 
 ## Deployment
 
-The application is deployed on both AWS EC2 and Heroku, ensuring high availability and scalability.
+The application is deployed on both AWS EC2 and Heroku, ensuring high availability and scalability. Each platform offers unique advantages tailored to different deployment needs.
 
 ### AWS Deployment
 
-- **Access Link:** [http://18.215.180.207:8000](http://18.215.180.207:8000)
-- **Setup:**
-  - Utilizes Docker for containerization.
-  - Automated deployments are managed via AWS CodeDeploy, integrated with GitHub Actions for CI/CD.
-  - Security best practices are followed, including the use of IAM roles and secure handling of credentials.
+#### Architecture Overview
+
+The AWS deployment leverages several AWS services to ensure a scalable, secure, and efficient environment for the Financial App.
+
+![AWS Architecture](https://link-to-architecture-diagram.com)
+
+#### Components
+
+1. **Amazon EC2 (Elastic Compute Cloud):**
+   - Hosts the Django application.
+   - Configured with Docker to containerize the application for consistent deployments.
+
+2. **Amazon ECR (Elastic Container Registry):**
+   - Stores Docker images securely.
+   - Acts as the central repository from which EC2 instances pull the latest images.
+
+3. **AWS CodeDeploy:**
+   - Manages automated deployments to EC2 instances.
+   - Integrates with GitHub Actions to trigger deployments upon code changes.
+
+4. **AWS S3 (Simple Storage Service):**
+   - Stores deployment packages used by CodeDeploy.
+
+5. **Security Groups and IAM Roles:**
+   - Ensure secure access and permissions management.
+   - IAM roles grant EC2 instances the necessary permissions to interact with ECR and other AWS services without embedding credentials.
+
+#### CI/CD Pipeline
+
+1. **GitHub Actions:**
+   - Automates the build, test, and deployment process.
+   - Upon a push to the main branch:
+     - Builds the Docker image.
+     - Pushes the image to Amazon ECR.
+     - Packages the application for deployment.
+     - Uploads the deployment package to S3.
+     - Triggers AWS CodeDeploy to update the EC2 instances with the latest image.
+
+2. **AWS CodeDeploy:**
+   - Deploys the updated application to EC2 instances seamlessly.
+   - Handles in-place deployments ensuring minimal downtime.
+
+#### Deployment Steps
+
+1. **Build and Push Docker Image:**
+   - GitHub Actions builds the Docker image using the latest codebase.
+   - Tags the image with the commit SHA for versioning.
+   - Pushes the image to Amazon ECR.
+
+2. **Create Deployment Package:**
+   - Packages the application code along with the `appspec.yml` and deployment scripts.
+   - Uploads the package to an S3 bucket.
+
+3. **Trigger CodeDeploy:**
+   - Initiates a deployment in CodeDeploy using the uploaded package.
+   - CodeDeploy updates the EC2 instances by pulling the latest Docker image from ECR and restarting the Docker containers.
+
+4. **Monitoring and Rollback:**
+   - Monitors deployment success and health.
+   - Automatically rolls back in case of failures to maintain application stability.
 
 ### Heroku Deployment
 
 - **Access Link:** [https://fin-app-test-1e93e4768a94.herokuapp.com](https://fin-app-test-1e93e4768a94.herokuapp.com)
 - **Setup:**
   - Deploys directly from the GitHub repository using Heroku's GitHub integration.
+  - Utilizes Heroku's buildpacks to handle dependencies and environment configurations.
   - Managed environment variables and scaling options are configured via the Heroku dashboard.
+  - Simplifies deployment by abstracting infrastructure management, allowing developers to focus solely on application code.
+
+### Heroku vs. AWS Deployment
+
+Choosing between Heroku and AWS for deployment depends on your project's specific needs, scalability requirements, and resource management preferences. Here's a comparison to help understand the strengths and trade-offs of each platform:
+
+| Feature                   | Heroku                                             | AWS EC2 & ECR with CodeDeploy                        |
+|---------------------------|----------------------------------------------------|------------------------------------------------------|
+| **Ease of Use**           | Extremely user-friendly with minimal setup. Ideal for rapid deployments and small to medium projects. | Requires more setup and configuration but offers greater control and flexibility. |
+| **Scalability**           | Automatically handles scaling with simple configurations. Suitable for applications with predictable scaling needs. | Highly scalable with manual or automated scaling options, suitable for large and complex applications. |
+| **Cost**                  | Transparent pricing with easy-to-understand tiers. Can be cost-effective for smaller applications but may become expensive at scale. | Pay-as-you-go pricing with granular control over resources, potentially more cost-effective at scale but can be complex to manage. |
+| **Flexibility**           | Limited to the features and configurations provided by Heroku. Abstracts away much of the underlying infrastructure. | Highly flexible, allowing customization of the entire stack, network configurations, and integrations with a wide array of AWS services. |
+| **Deployment Speed**     | Very fast deployments with integrated CI/CD pipelines. Suitable for developers looking for quick iterations. | Slightly slower initial setup but offers robust deployment pipelines once configured. |
+| **Maintenance**           | Minimal maintenance as Heroku manages the infrastructure, security patches, and scaling. | Requires managing and maintaining EC2 instances, security patches, and scaling configurations. |
+| **Ecosystem Integration**| Limited to Heroku's ecosystem and available add-ons. | Seamlessly integrates with the extensive AWS ecosystem, enabling use of a vast array of services like RDS, S3, Lambda, etc. |
+| **Security**              | Managed security with Heroku handling most aspects. Suitable for applications where deep security customization is not required. | Offers advanced security configurations, including VPCs, IAM roles, and security groups, providing greater control over security aspects. |
+| **Learning Curve**        | Low learning curve, making it accessible for beginners or those wanting to focus solely on development. | Steeper learning curve due to the breadth of services and configurations, better suited for teams with AWS experience. |
+
+**Recommendation:**
+
+- **Use Heroku if:**
+  - You prioritize rapid development and deployment.
+  - You prefer minimal infrastructure management.
+  - Your application fits within Heroku's scalability and feature offerings.
+
+- **Use AWS EC2 & ECR with CodeDeploy if:**
+  - You require greater control over your infrastructure.
+  - Your application demands high scalability and customization.
+  - You plan to leverage the broader AWS ecosystem for additional services and integrations.
+
+By leveraging both platforms, you can take advantage of their unique strengths based on your project's evolving needs.
 
 ## Evaluation Criteria
 
