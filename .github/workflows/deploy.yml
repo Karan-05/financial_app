@@ -36,9 +36,9 @@ jobs:
           echo "Building Docker image..."
           docker build -t financial_app:${IMAGE_TAG} .
           echo "Tagging Docker image..."
-          docker tag financial_app:${IMAGE_TAG} ${ECR_REPOSITORY}:${IMAGE_TAG}
-          echo "Pushing Docker image to ECR..."
-          docker push ${ECR_REPOSITORY}:${IMAGE_TAG}
+          docker build -t financial_app:${IMAGE_TAG} .
+          docker tag financial_app:${IMAGE_TAG} 051826698008.dkr.ecr.us-east-1.amazonaws.com/financial_app:${IMAGE_TAG}
+          docker push 051826698008.dkr.ecr.us-east-1.amazonaws.com/financial_app:${IMAGE_TAG}
 
       # Step 5: Update EC2 with Latest Image using SSM
       - name: Update EC2 with Latest Image using SSM
