@@ -3,7 +3,7 @@ name: Deploy to EC2
 on:
   push:
     branches:
-      - main  # Change this to your desired branch
+      - main  # Change to your desired branch
 
 jobs:
   deploy:
@@ -14,7 +14,15 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # Step 2: Log in to Amazon ECR
+      # Step 2: Configure AWS Credentials
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # Step 3: Log in to Amazon ECR
       - name: Log in to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -22,21 +30,20 @@ jobs:
           mask-password: true
           registry-type: private
           skip-logout: false
-        env:
-          AWS_REGION: ${{ secrets.AWS_REGION }}
+        # No 'region' input; it's set via AWS_REGION environment variable
 
-      # Step 3: Build, Tag, and Push Docker Image
+      # Step 4: Build, Tag, and Push Docker Image
       - name: Build, Tag, and Push Docker Image
         id: build-image
         env:
           ECR_REGISTRY: ${{ secrets.ECR_REPOSITORY }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t financial-app:$IMAGE_TAG .
-          docker tag financial-app:$IMAGE_TAG $ECR_REGISTRY:$IMAGE_TAG
-          docker push $ECR_REGISTRY:$IMAGE_TAG
+          docker build -t financial-app:${IMAGE_TAG} .
+          docker tag financial-app:${IMAGE_TAG} ${ECR_REGISTRY}:${IMAGE_TAG}
+          docker push ${ECR_REGISTRY}:${IMAGE_TAG}
 
-      # Step 4: Update EC2 with Latest Image
+      # Step 5: Update EC2 with Latest Image
       - name: Update EC2 with Latest Image
         uses: appleboy/ssh-action@v0.1.7
         with:
@@ -44,15 +51,11 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Decode and set up SSH key
-            echo "${{ secrets.EC2_SSH_KEY }}" | base64 --decode > ~/.ssh/id_rsa
-            chmod 600 ~/.ssh/id_rsa
+            # Decode and set up SSH key (if necessary)
+            # echo "${{ secrets.EC2_SSH_KEY }}" | base64 --decode > ~/.ssh/id_rsa
+            # chmod 600 ~/.ssh/id_rsa
 
-            # Optional: Install AWS CLI on EC2 if not already installed
-            # sudo apt-get update
-            # sudo apt-get install -y awscli
-
-            # Log in to ECR from EC2
+            # Log in to ECR from EC2 (if IAM Role is not attached)
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REPOSITORY }}
 
             # Pull the latest Docker image
@@ -61,6 +64,6 @@ jobs:
             # Update docker-compose.yml with the new image tag
             sed -i "s|image: financial-app:.*|image: ${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}|" docker-compose.yml
 
-            # Restart Docker containers
+            # Restart Docker containers using Docker Compose
             docker-compose down
             docker-compose up -d --build
