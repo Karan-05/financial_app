@@ -86,11 +86,7 @@ Follow these steps to set up the project locally:
 
    ```env
    DEBUG=True
-   SECRET_KEY=your_secret_key
    ALLOWED_HOSTS=localhost,127.0.0.1
-   DATABASE_URL=postgres://user:password@localhost:5432/financial_app
-   FINANCIAL_API_KEY=your_financial_api_key
-   ML_MODEL_PATH=path_to_your_ml_model.pkl
    ```
 
 5. **Apply Migrations**
