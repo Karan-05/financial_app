@@ -1,0 +1,18 @@
+version: 0.0
+os: linux
+files:
+  - source: /
+    destination: /home/ubuntu/FinancialApp
+hooks:
+  AfterInstall:
+    - location: scripts/docker-pull.sh
+      timeout: 300
+      runas: ubuntu
+  ApplicationStart:
+    - location: scripts/docker-compose-up.sh
+      timeout: 300
+      runas: ubuntu
+  ValidateService:
+    - location: scripts/validate-service.sh
+      timeout: 300
+      runas: ubuntu
