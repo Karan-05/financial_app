@@ -55,6 +55,7 @@ jobs:
               "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPOSITORY}",
               "docker pull ${ECR_REPOSITORY}:${GITHUB_SHA}",
               "sed -i 's|image: financial-app:.*|image: ${ECR_REPOSITORY}:${GITHUB_SHA}|' docker-compose.yml",
+              "cd financial_app/"
               "docker-compose down",
               "docker-compose up -d --build"
             ]
