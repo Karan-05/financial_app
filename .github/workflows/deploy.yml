@@ -62,7 +62,7 @@ jobs:
           EOF
           echo "Sending command to EC2 instance via SSM..."
           aws ssm send-command \
-            --instance-ids "${EC2_INSTANCE_ID}" \
+            --instance-ids i-07357f25245fe07d1 \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy latest Docker image" \
             --parameters file://parameters.json \
