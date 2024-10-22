@@ -40,8 +40,8 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t financial-app:${IMAGE_TAG} .
-          docker tag financial-app:${IMAGE_TAG} ${ECR_REGISTRY}:${IMAGE_TAG}
-          docker push ${ECR_REGISTRY}:${IMAGE_TAG}
+          docker tag docker tag financial_app:{IMAGE_TAG} 051826698008.dkr.ecr.us-east-1.amazonaws.com/financial_app:{IMAGE_TAG}
+          docker push 051826698008.dkr.ecr.us-east-1.amazonaws.com/financial_app:{IMAGE_TAG}
 
       # Step 5: Update EC2 with Latest Image
       - name: Update EC2 with Latest Image
