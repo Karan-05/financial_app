@@ -1,12 +1,12 @@
-name: Deploy to EC2
+name: CI/CD Pipeline
 
 on:
   push:
     branches:
-      - main  # Change to your desired branch
+      - main  # Trigger deployment on push to main branch
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -14,56 +14,92 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # Step 2: Configure AWS Credentials
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      # Step 3: Log in to Amazon ECR
+      # Step 2: Log in to Amazon ECR
       - name: Log in to Amazon ECR
-        id: login-ecr
+        id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
         with:
-          mask-password: true
           registry-type: private
-          skip-logout: false
-        # No 'region' input; it's set via AWS_REGION environment variable
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      # Step 4: Build, Tag, and Push Docker Image
+      # Step 3: Build, Tag, and Push Docker Image
       - name: Build, Tag, and Push Docker Image
         id: build-image
         env:
           ECR_REGISTRY: ${{ secrets.ECR_REPOSITORY }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t financial_app:${IMAGE_TAG} .
-          docker tag financial_app:${IMAGE_TAG} 051826698008.dkr.ecr.us-east-1.amazonaws.com/financial_app:${IMAGE_TAG}
-          docker push 051826698008.dkr.ecr.us-east-1.amazonaws.com/financial_app:${IMAGE_TAG}
+          # Build the Docker image
+          docker build -t financial-app:${IMAGE_TAG} .
+          
+          # Tag the Docker image with the ECR repository URI and commit SHA
+          docker tag financial-app:${IMAGE_TAG} ${ECR_REGISTRY}:${IMAGE_TAG}
+          
+          # Push the Docker image to ECR
+          docker push ${ECR_REGISTRY}:${IMAGE_TAG}
 
-      # Step 5: Update EC2 with Latest Image
-      - name: Update EC2 with Latest Image
-        uses: appleboy/ssh-action@v0.1.7
+      # Step 4: Create Deployment Archive
+      - name: Create Deployment Archive
+        id: create-archive
+        run: |
+          # Create a temporary directory
+          mkdir -p deployment
+          
+          # Copy application files
+          cp -r . deployment/
+          
+          # Navigate to the deployment directory
+          cd deployment
+          
+          # Create the AppSpec file if not already present
+          if [ ! -f appspec.yml ]; then
+            echo "appspec.yml not found. Creating a default one."
+            cat <<EOF > appspec.yml
+version: 0.0
+os: linux
+files:
+  - source: /
+    destination: /home/ubuntu/FinancialApp
+hooks:
+  AfterInstall:
+    - location: scripts/docker-pull.sh
+      timeout: 300
+      runas: ubuntu
+  ApplicationStart:
+    - location: scripts/docker-compose-up.sh
+      timeout: 300
+      runas: ubuntu
+  ValidateService:
+    - location: scripts/validate-service.sh
+      timeout: 300
+      runas: ubuntu
+EOF
+          fi
+          
+          # Zip the deployment package
+          zip -r ../deployment.zip .
+
+      # Step 5: Upload Deployment Package to S3
+      - name: Upload Deployment Package to S3
+        uses: aws-actions/aws-cli@v2
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            # Decode and set up SSH key (if necessary)
-            # echo "${{ secrets.EC2_SSH_KEY }}" | base64 --decode > ~/.ssh/id_rsa
-            # chmod 600 ~/.ssh/id_rsa
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          args: s3 cp deployment.zip s3://${{ secrets.CODEDEPLOY_S3_BUCKET }}/deployment.zip
 
-            # Log in to ECR from EC2 (if IAM Role is not attached)
-            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REPOSITORY }}
-
-            # Pull the latest Docker image
-            docker pull ${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
-
-            # Update docker-compose.yml with the new image tag
-            sed -i "s|image: financial-app:.*|image: ${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}|" docker-compose.yml
-
-            # Restart Docker containers using Docker Compose
-            docker-compose down
-            docker-compose up -d --build
+      # Step 6: Create a Deployment in CodeDeploy
+      - name: Create Deployment
+        uses: aws-actions/aws-cli@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          args: >
+            deploy create-deployment
+            --application-name ${{ secrets.APPLICATION_NAME }}
+            --deployment-group-name ${{ secrets.DEPLOYMENT_GROUP }}
+            --s3-location bucket=${{ secrets.CODEDEPLOY_S3_BUCKET }},key=deployment.zip,bundleType=zip
