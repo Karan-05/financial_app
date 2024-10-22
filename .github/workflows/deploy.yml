@@ -54,34 +54,7 @@ jobs:
           # Navigate to the deployment directory
           cd deployment
           
-          # Create the AppSpec file if not already present
-          if [ ! -f appspec.yml ]; then
-            echo "appspec.yml not found. Creating a default one."
-            cat <<EOF > appspec.yml
-version: 0.0
-os: linux
-files:
-  - source: /
-    destination: /home/ubuntu/FinancialApp
-hooks:
-  AfterInstall:
-    - location: scripts/docker-pull.sh
-      timeout: 300
-      runas: ubuntu
-  ApplicationStart:
-    - location: scripts/docker-compose-up.sh
-      timeout: 300
-      runas: ubuntu
-  ValidateService:
-    - location: scripts/validate-service.sh
-      timeout: 300
-      runas: ubuntu
-EOF
-          fi
           
-          # Zip the deployment package
-          zip -r ../deployment.zip .
-
       # Step 5: Upload Deployment Package to S3
       - name: Upload Deployment Package to S3
         uses: aws-actions/aws-cli@v2
