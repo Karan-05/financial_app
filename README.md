@@ -1,6 +1,5 @@
 # Financial App
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Build Status](https://github.com/Karan-05/financial_app/actions/workflows/deploy.yml/badge.svg)
 
 ## Table of Contents
@@ -10,6 +9,8 @@
 - [Features](#features)
 - [Technologies Used](#technologies-used)
 - [Installation](#installation)
+  - [Local Setup (Without Docker)](#local-setup-without-docker)
+  - [Docker Setup](#docker-setup)
 - [Usage](#usage)
 - [Code Explanation](#code-explanation)
   - [1. API Integration](#1-api-integration)
@@ -21,6 +22,7 @@
     - [Architecture Overview](#architecture-overview)
     - [Components](#components)
     - [CI/CD Pipeline](#cicd-pipeline)
+    - [Docker and ECR Integration](#docker-and-ecr-integration)
   - [Heroku Deployment](#heroku-deployment)
   - [Heroku vs. AWS Deployment](#heroku-vs-aws-deployment)
 - [Evaluation Criteria](#evaluation-criteria)
@@ -35,6 +37,7 @@ Welcome to the **Financial App** repository! This application is designed to pro
 
 - **AWS Deployment:** [http://18.215.180.207:8000](http://18.215.180.207:8000)
 - **Heroku Deployment:** [https://fin-app-test-1e93e4768a94.herokuapp.com](https://fin-app-test-1e93e4768a94.herokuapp.com)
+- **GitHub Repo:** [https://github.com/Karan-05/financial_app](https://github.com/Karan-05/financial_app)
 
 ## Features
 
@@ -59,6 +62,8 @@ Welcome to the **Financial App** repository! This application is designed to pro
 ## Installation
 
 Follow these steps to set up the project locally:
+
+### Local Setup (Without Docker)
 
 1. **Clone the Repository**
 
@@ -87,6 +92,7 @@ Follow these steps to set up the project locally:
    ```env
    DEBUG=True
    ALLOWED_HOSTS=localhost,127.0.0.1
+   ML_MODEL_PATH=path_to_your_ml_model.pkl
    ```
 
 5. **Apply Migrations**
@@ -102,6 +108,99 @@ Follow these steps to set up the project locally:
    ```
 
    Access the application at `http://localhost:8000`.
+
+### Docker Setup
+
+For a more streamlined setup using Docker and Docker Compose, follow these steps:
+
+1. **Clone the Repository**
+
+   If you haven't already, clone the repository:
+
+   ```bash
+   git clone https://github.com/Karan-05/financial_app.git
+   cd financial_app
+   ```
+
+2. **Configure Environment Variables**
+
+   Ensure you have a `.env` file in the root directory with the necessary environment variables as shown above.
+
+3. **Build the Docker Image**
+
+   Use Docker Compose to build the Docker image:
+
+   ```bash
+   docker-compose build
+   ```
+
+   **Explanation:**
+   
+   - This command reads the `docker-compose.yml` file and builds the Docker images defined therein.
+
+4. **Run the Application with Docker Compose**
+
+   Start the application using Docker Compose:
+
+   ```bash
+   docker-compose up -d
+   ```
+
+   **Explanation:**
+   
+   - The `up` command creates and starts containers based on the `docker-compose.yml` configuration.
+   - The `-d` flag runs the containers in detached mode.
+
+5. **Apply Migrations Inside the Docker Container**
+
+   After the containers are up, apply database migrations:
+
+   ```bash
+   docker-compose exec web python manage.py migrate
+   ```
+
+   **Explanation:**
+   
+   - `web` is the name of the Django service defined in `docker-compose.yml`.
+   - This command executes the migration inside the running `web` container.
+
+6. **Access the Application**
+
+   The application should now be running at `http://localhost:8000`.
+
+7. **Stopping the Application**
+
+   To stop the application, run:
+
+   ```bash
+   docker-compose down
+   ```
+
+   **Explanation:**
+   
+   - This command stops and removes the containers, networks, and volumes defined in the `docker-compose.yml` file.
+
+8. **Rebuilding Containers After Code Changes**
+
+   If you make changes to the codebase that affect the Docker image, rebuild and restart the containers:
+
+   ```bash
+   docker-compose up -d --build
+   ```
+
+   **Explanation:**
+   
+   - The `--build` flag forces Docker Compose to rebuild the images before starting the containers.
+
+### Summary of Docker Commands
+
+- **Build Images:** `docker-compose build`
+- **Start Containers:** `docker-compose up -d`
+- **Apply Migrations:** `docker-compose exec web python manage.py migrate`
+- **Stop Containers:** `docker-compose down`
+- **Rebuild and Restart:** `docker-compose up -d --build`
+
+By using Docker and Docker Compose, you can ensure a consistent development environment across different machines and streamline the deployment process.
 
 ## Usage
 
@@ -165,8 +264,6 @@ The application is deployed on both AWS EC2 and Heroku, ensuring high availabili
 
 The AWS deployment leverages several AWS services to ensure a scalable, secure, and efficient environment for the Financial App.
 
-![AWS Architecture](https://link-to-architecture-diagram.com)
-
 #### Components
 
 1. **Amazon EC2 (Elastic Compute Cloud):**
@@ -203,24 +300,36 @@ The AWS deployment leverages several AWS services to ensure a scalable, secure, 
    - Deploys the updated application to EC2 instances seamlessly.
    - Handles in-place deployments ensuring minimal downtime.
 
-#### Deployment Steps
+#### Docker and ECR Integration
 
-1. **Build and Push Docker Image:**
-   - GitHub Actions builds the Docker image using the latest codebase.
-   - Tags the image with the commit SHA for versioning.
-   - Pushes the image to Amazon ECR.
+- **Building Docker Images:**
 
-2. **Create Deployment Package:**
-   - Packages the application code along with the `appspec.yml` and deployment scripts.
-   - Uploads the package to an S3 bucket.
+  When a new commit is pushed, GitHub Actions uses the `Dockerfile` to build a new Docker image.
 
-3. **Trigger CodeDeploy:**
-   - Initiates a deployment in CodeDeploy using the uploaded package.
-   - CodeDeploy updates the EC2 instances by pulling the latest Docker image from ECR and restarting the Docker containers.
+  ```bash
+  docker build -t financial-app:${IMAGE_TAG} .
+  ```
 
-4. **Monitoring and Rollback:**
-   - Monitors deployment success and health.
-   - Automatically rolls back in case of failures to maintain application stability.
+- **Tagging and Pushing to ECR:**
+
+  The built image is then tagged with the ECR repository URI and pushed to Amazon ECR.
+
+  ```bash
+  docker tag financial-app:${IMAGE_TAG} 051826698008.dkr.ecr.us-east-1.amazonaws.com/financial-app:${IMAGE_TAG}
+  docker push 051826698008.dkr.ecr.us-east-1.amazonaws.com/financial-app:${IMAGE_TAG}
+  ```
+
+- **Pulling Images on EC2:**
+
+  AWS CodeDeploy triggers scripts on EC2 instances that pull the latest image from ECR and restart the Docker containers.
+
+  ```bash
+  docker pull 051826698008.dkr.ecr.us-east-1.amazonaws.com/financial-app:${IMAGE_TAG}
+  docker-compose down
+  docker-compose up -d --build
+  ```
+
+This integration ensures that each deployment is consistent and reproducible, leveraging Docker's containerization and ECR's secure image storage.
 
 ### Heroku Deployment
 
@@ -233,7 +342,7 @@ The AWS deployment leverages several AWS services to ensure a scalable, secure, 
 
 ### Heroku vs. AWS Deployment
 
-Choosing between Heroku and AWS for deployment depends on your project's specific needs, scalability requirements, and resource management preferences. Here's a comparison to help understand the strengths and trade-offs of each platform:
+Choosing between Heroku and AWS for deployment depends on your project's specific needs, scalability requirements, and resource management preferences. Here's a detailed comparison to help understand the strengths and trade-offs of each platform:
 
 | Feature                   | Heroku                                             | AWS EC2 & ECR with CodeDeploy                        |
 |---------------------------|----------------------------------------------------|------------------------------------------------------|
@@ -261,38 +370,10 @@ Choosing between Heroku and AWS for deployment depends on your project's specifi
 
 By leveraging both platforms, you can take advantage of their unique strengths based on your project's evolving needs.
 
-## Evaluation Criteria
-
-This project has been developed and evaluated based on the following criteria:
-
-1. **API Integration**:
-    - Correct and efficient fetching of financial data using the specified API.
-    - Proper handling of large datasets and API limits.
-
-2. **Backtesting Logic**:
-    - Robust implementation of the backtesting strategy, accurate calculation of returns and other performance metrics.
-    - Code quality, clarity, and testability.
-
-3. **ML Integration**:
-    - Seamless integration of a pre-trained machine learning model for predictions.
-    - Proper management of the model in Django, with clear separation of concerns (model logic vs Django views).
-
-4. **Reporting**:
-    - Clear, insightful reports with visualizations and key metrics.
-    - Ability to handle both PDF generation and API responses.
-
-5. **Deployment**:
-    - Deployment is production-ready, secure, and scalable.
-    - Use of Docker and CI/CD tools to automate deployment processes.
-
-6. **Documentation**:
-    - Detailed `README.md` that clearly explains how to set up and deploy the project.
-    - Documentation is beginner-friendly for setup, but the task itself is designed for advanced developers.
 
 ## Acknowledgments
 
 A heartfelt thank you to **Blockhouse** for providing this assignment. It was a great learning experience that allowed me to deepen my understanding of integrating APIs, implementing backtesting strategies, incorporating machine learning models, and automating deployments using Docker and AWS CodeDeploy. Your support and the opportunity to tackle such a comprehensive project have been invaluable.
 
----
 
 **Feel free to reach out if you have any questions or need further assistance. Happy investing!**
