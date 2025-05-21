@@ -377,3 +377,239 @@ A heartfelt thank you to **Blockhouse** for providing this assignment. It was a 
 
 
 **Feel free to reach out if you have any questions or need further assistance. Happy investing!**
+
+
+
+
+# Lancey Take‑Home Challenge – Detailed Solution  
+*Karan Allagh – May 20 2025*
+
+---
+
+## Build Instructions
+
+```bash
+g++ -std=c++17 -O2 -Wall -Wextra lancey_challenge.cpp -o lancey
+```
+
+Run the program and follow the interactive menu. All algorithms live in
+`lancey_challenge.cpp`; this document explains them in depth.
+
+---
+
+## 1. First Non‑Repeating Character
+
+### Algorithm
+
+1. **Pass 1** – count occurrences in a fixed 256‑slot array (`freq`).
+2. **Pass 2** – scan again; the first character whose `freq==1`
+   is the answer.
+
+*Rationale*: constant memory, two sequential passes => `O(n)` time, `O(1)` space.
+
+### Code Excerpt
+
+```cpp
+int first_unique_index(const string& s){
+    int freq[256]={0};
+    for(unsigned char c: s) ++freq[c];          // pass 1
+    for(size_t i=0;i<s.size();++i)              // pass 2
+        if(freq[(unsigned char)s[i]]==1)
+            return static_cast<int>(i);
+    return -1;
+}
+```
+
+### Dry Run – `"loveleetcode"`
+
+| i | char | after pass 1 `freq[char]` | test in pass 2 |
+|---|------|--------------------------|----------------|
+| 0 | **l**| 1 | first with freq 1 → return 0 |
+
+---
+
+## 2. Vector Transform
+
+General “map”:
+
+```cpp
+template<typename T, typename F>
+auto transform_vec(const vector<T>& in, F op)
+     -> vector<decltype(op(in[0]))>{
+    vector<decltype(op(in[0]))> out;
+    out.reserve(in.size());
+    for(const T& v: in) out.push_back(op(v));
+    return out;
+}
+```
+
+*Why templates?* Works for any `T` and unary functor `F`.
+
+### Dry Run – Square `[1,2,3]`
+
+```
+reserve 3
+push 1→1, push 2→4, push 3→9
+return [1,4,9]
+```
+
+Complexity: `O(n)` time, `O(n)` extra space (for output).
+
+---
+
+## 3. Domino Closed Chain
+
+### Graph Model
+
+Domino `[a|b]` = undirected multi‑edge between vertices `a` and `b`
+(pip counts 0‑6).  
+A *closed* chain exists **iff**
+
+* graph connected on used vertices, and
+* every vertex degree even → Eulerian **cycle**.
+
+### Algorithm (Hierholzer)
+
+1. Build adjacency `adj[v]` of **edge IDs**.
+2. Reject if some `deg[v]` odd.
+3. DFS:
+   * Mark edge used.
+   * Recurse to neighbour.
+   * Push domino on **unwind** (post‑order) with correct orientation.
+4. Reverse `path`.  
+5. Ensure path size == `E` and ends match.
+
+### Dry Run
+
+Input: `[2|1] [2|3] [1|3]`
+
+```
+deg: 1:2, 2:2, 3:2 (all even)
+start = 1
+dfs(1) → dfs(2) → dfs(3) → dfs(1)
+unwind push [3|1] [2|3] [1|2]
+reverse ⇒ [1|2] [2|3] [3|1]
+first.a == last.b == 1 ✔
+```
+
+Complexities: `O(E)` time, `O(E)` memory.
+
+---
+
+## 4. Number → English Words
+
+### Steps
+
+1. Split number into **chunks of 3 digits** (least‑significant first).
+2. Convert each chunk with `three_digit_words`:
+   * hundreds
+   * tens (`twenty … ninety`)
+   * teens / units
+3. Append scale word (`thousand`, `million`, `billion`) based on chunk index.
+4. Concatenate highest → lowest.
+
+### Example – `12 345`
+
+```
+chunks: [345, 12]
+chunk0: "three hundred forty‑five"
+chunk1: "twelve thousand"
+join → "twelve thousand three hundred forty‑five"
+```
+
+Special cases: 0, out‑of‑range ⇒ `"out of range"`.
+
+Complexity: `O(log₁₀ N)` time (≤4 chunks) and `O(1)` space.
+
+---
+
+## 5. Queen Attack
+
+Conditions on 8×8 board:
+
+```cpp
+bool queens_attack(pair<int,int> q1, pair<int,int> q2){
+    return q1.first  == q2.first  ||   // same column
+           q1.second == q2.second ||   // same row
+           abs(q1.first-q2.first) ==
+           abs(q1.second-q2.second);   // same diagonal
+}
+```
+
+Time/space: constant.
+
+---
+
+## 6. Word‑Math Parser
+
+### Grammar
+
+```
+question ::= "What is " expr "?"
+expr      ::= number ( op number )*
+op        ::= plus | minus | multiplied by | divided by
+```
+
+Evaluation is strictly **left‑to‑right** (spec overrides precedence).
+
+### Algorithm
+
+1. Validate wrapper; strip `"What is "` and trailing `?`.
+2. Split tokens on spaces.
+3. Helper `next_int()` parses and validates token as integer.
+4. Fold:
+   ```text
+   acc ← first number
+   for each op number:
+       apply op, update acc
+   ```
+5. Throw `runtime_error` on syntax errors.
+
+### Dry Run – `"What is 5 plus 13 minus 3?"`
+
+```
+tokens [5, plus, 13, minus, 3]
+acc=5 → plus 13 ⇒ 18 → minus 3 ⇒ 15
+return 15
+```
+
+Complexity: `O(k)` tokens.
+
+---
+
+## Design Reasoning
+
+* **Manual data‑structures** (arrays, vectors) highlight algorithmic work.
+* **No `std::reverse`**: I implemented `reverse_vec` to satisfy the “hands‑off” rule.
+* Stored **edge ids** in domino problem – avoids pointer arithmetic UB and simplifies `used` mask.
+* Recursive lambda wrapped in `std::function` to enable self‑reference in C++17.
+
+---
+
+## Thought Process
+
+I tackled problems in ascending difficulty:
+
+1. Quick wins (frequency, transform) first – build momentum.
+2. Domino cycle: wrote an isolated prototype; once correct, integrated.
+3. Implemented number‑words with incremental printing – tested edge cases 0, teens, scales.
+4. Parser last: I hand‑rolled a loop to avoid heavy parsing libs.
+
+Each function is **unit‑like** (stateless, no globals) → simplifies reasoning.
+
+---
+
+## Possible Enhancements
+
+| Idea | Benefit |
+|------|---------|
+| Extend domino to Euler *trail* | solve open‑chain puzzles |
+| Use `std::ranges` once C++20 allowed | cleaner transforms |
+| Replace interactive menu with argument parser | script‑friendly |
+| Add comprehensive unit tests | confidence, CI‑ready |
+
+---
+
+**End of document.**
+
+
